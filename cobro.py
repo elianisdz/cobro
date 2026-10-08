@@ -187,7 +187,7 @@ if btn_crear_ruta:
 
 st.sidebar.markdown("---")
 
-# 1. Registrar Nuevo Crédito
+# 1. Registrar Nuevo Crédito (Con formulario para limpieza automática)
 st.sidebar.header("📝 Registrar Nuevo Crédito")
 
 if not rutas_disponibles:
@@ -195,29 +195,26 @@ if not rutas_disponibles:
       "⚠️ Primero debes registrar al menos una ruta con su contraseña."
   )
 else:
-  fecha_credito = st.sidebar.date_input("Fecha del Préstamo", value=date.today())
-  nombre_cliente = st.sidebar.text_input("Nombre y Apellido del Cliente")
-  cobrador_seleccionado = st.sidebar.selectbox("Asignar a Ruta", rutas_disponibles)
+  with st.sidebar.form("form_registrar_credito", clear_on_submit=True):
+    fecha_credito = st.date_input("Fecha del Préstamo", value=date.today())
+    nombre_cliente = st.text_input("Nombre y Apellido del Cliente")
+    cobrador_seleccionado = st.selectbox("Asignar a Ruta", rutas_disponibles)
 
-  capital_prestado = st.sidebar.number_input(
-      "Capital Prestado ($)", min_value=0, value=100000, step=10000, format="%d"
-  )
-  capital_fmt = f"${capital_prestado:,.0f}".replace(",", ".")
-  st.sidebar.caption(f"👁️ Capital: **{capital_fmt}**")
+    capital_prestado = st.number_input(
+        "Capital Prestado ($)", min_value=0, value=100000, step=10000, format="%d"
+    )
+    interes_porcentaje = st.number_input(
+        "Interés (%)", min_value=0.0, value=20.0, step=5.0
+    )
+    dias_plazo = st.number_input(
+        "Plazo en Cuotas (Días)", min_value=1, value=24, step=1
+    )
 
-  interes_porcentaje = st.sidebar.number_input(
-      "Interés (%)", min_value=0.0, value=20.0, step=5.0
-  )
-  dias_plazo = st.sidebar.number_input(
-      "Plazo en Cuotas (Días)", min_value=1, value=24, step=1
-  )
+    btn_guardar_prestamo = st.form_submit_button(
+        "💾 Guardar Préstamo", type="primary"
+    )
 
-  total_prev = capital_prestado + (capital_prestado * (interes_porcentaje / 100))
-  cuota_prev = int(total_prev / dias_plazo) if dias_plazo > 0 else 0
-  cuota_fmt = f"${cuota_prev:,.0f}".replace(",", ".")
-  st.sidebar.info(f"💡 **Cuota Diaria estimada:** {cuota_fmt}")
-
-  if st.sidebar.button("💾 Guardar Préstamo", type="primary"):
+  if btn_guardar_prestamo:
     if not nombre_cliente.strip():
       st.sidebar.error("⚠️ Debes ingresar el nombre del cliente.")
     else:
@@ -254,7 +251,7 @@ else:
 
 st.sidebar.markdown("---")
 
-# 2. Eliminar Ruta (Justo debajo de registrar crédito)
+# 2. Eliminar Ruta
 st.sidebar.header("🗑️ Eliminar Ruta")
 if rutas_disponibles:
   with st.sidebar.form("form_eliminar_ruta", clear_on_submit=True):
@@ -376,15 +373,13 @@ else:
             df_mostrar.insert(0, "Abonar_Cuota", False)
             df_mostrar.insert(1, "Monto_Ingresado", df_mostrar["cuota_diaria"])
 
+            # Columnas limpias (sin capital, total crédito ni saldo deuda)
             columnas_visibles = [
                 "Abonar_Cuota",
                 "Monto_Ingresado",
                 "fecha_prestamo",
                 "nombre_cliente",
-                "capital_prestado",
-                "total_a_pagar",
                 "cuota_diaria",
-                "saldo_pendiente",
                 "estado",
             ]
 
@@ -404,27 +399,15 @@ else:
                     "nombre_cliente": st.column_config.TextColumn(
                         "Cliente", disabled=True
                     ),
-                    "capital_prestado": st.column_config.NumberColumn(
-                        "Capital ($)", format="$%d", disabled=True
-                    ),
-                    "total_a_pagar": st.column_config.NumberColumn(
-                        "Total Crédito ($)", format="$%d", disabled=True
-                    ),
                     "cuota_diaria": st.column_config.NumberColumn(
                         "Cuota Sugerida ($)", format="$%d", disabled=True
-                    ),
-                    "saldo_pendiente": st.column_config.NumberColumn(
-                        "Saldo Deuda ($)", format="$%d", disabled=True
                     ),
                     "estado": st.column_config.TextColumn("Estado", disabled=True),
                 },
                 disabled=[
                     "fecha_prestamo",
                     "nombre_cliente",
-                    "capital_prestado",
-                    "total_a_pagar",
                     "cuota_diaria",
-                    "saldo_pendiente",
                     "estado",
                 ],
                 hide_index=True,
