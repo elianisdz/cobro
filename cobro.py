@@ -223,7 +223,7 @@ if not rutas_disponibles:
       " sección superior."
   )
 else:
-  # Fuera del formulario ponemos los campos interactivos para ver los puntos en tiempo real
+  # Campos interactivos con puntos visibles en tiempo real
   fecha_credito = st.sidebar.date_input("Fecha del Préstamo", value=date.today())
   nombre_cliente = st.sidebar.text_input("Nombre y Apellido del Cliente")
   cobrador_seleccionado = st.sidebar.selectbox("Asignar a Ruta", rutas_disponibles)
@@ -231,19 +231,23 @@ else:
   capital_prestado = st.sidebar.number_input(
       "Capital Prestado ($)", min_value=0, value=100000, step=10000, format="%d"
   )
-  
-  # Mostramos en tiempo real cómo va quedando con puntos de mil
   capital_fmt = f"${capital_prestado:,.0f}".replace(",", ".")
-  st.sidebar.caption(f"👁️ Valor a prestar: **{capital_fmt}**")
+  st.sidebar.caption(f"👁️ Capital: **{capital_fmt}**")
 
   interes_porcentaje = st.sidebar.number_input(
       "Interés (%)", min_value=0.0, value=20.0, step=5.0
   )
+  
   dias_plazo = st.sidebar.number_input(
       "Plazo en Cuotas (Días)", min_value=1, value=24, step=1
   )
 
-  # Botón de guardar fuera o dentro del form (aquí con un botón normal controlado por session_state o directo)
+  # Cálculo previo en vivo de la cuota diaria para que sepas exactamente de cuánto queda
+  total_prev = capital_prestado + (capital_prestado * (interes_porcentaje / 100))
+  cuota_prev = int(total_prev / dias_plazo) if dias_plazo > 0 else 0
+  cuota_fmt = f"${cuota_prev:,.0f}".replace(",", ".")
+  st.sidebar.info(f"💡 **Cuota Diaria estimada:** {cuota_fmt}")
+
   if st.sidebar.button("💾 Guardar Préstamo", type="primary"):
     if not nombre_cliente.strip():
       st.sidebar.error("⚠️ Debes ingresar el nombre del cliente.")
