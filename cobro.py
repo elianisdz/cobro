@@ -133,8 +133,8 @@ def conectar_db():
 conn = conectar_db()
 
 st.markdown(
-    "💵 ## Control de Préstamos - <span"
-    ' style="color: #27ae60;">Sistema de Crédito</span>',
+    "💵 <h3>Control de Préstamos - <span"
+    ' style="color: #27ae60;">Sistema de Crédito</span></h3>',
     unsafe_allow_html=True,
 )
 
@@ -223,7 +223,6 @@ if not rutas_disponibles:
       " sección superior."
   )
 else:
-  # Campos interactivos con puntos visibles en tiempo real
   fecha_credito = st.sidebar.date_input("Fecha del Préstamo", value=date.today())
   nombre_cliente = st.sidebar.text_input("Nombre y Apellido del Cliente")
   cobrador_seleccionado = st.sidebar.selectbox("Asignar a Ruta", rutas_disponibles)
@@ -237,12 +236,10 @@ else:
   interes_porcentaje = st.sidebar.number_input(
       "Interés (%)", min_value=0.0, value=20.0, step=5.0
   )
-  
   dias_plazo = st.sidebar.number_input(
       "Plazo en Cuotas (Días)", min_value=1, value=24, step=1
   )
 
-  # Cálculo previo en vivo de la cuota diaria para que sepas exactamente de cuánto queda
   total_prev = capital_prestado + (capital_prestado * (interes_porcentaje / 100))
   cuota_prev = int(total_prev / dias_plazo) if dias_plazo > 0 else 0
   cuota_fmt = f"${cuota_prev:,.0f}".replace(",", ".")
@@ -365,35 +362,25 @@ else:
 
             st.markdown("---")
             st.caption(
-                "Marca la casilla **Pago Hoy** en los clientes que hayan abonado su"
-                " cuota diaria y haz clic en el botón inferior para registrar"
-                " el cobro con su fecha actual."
+                "1️⃣ Marca la casilla **Pago Hoy**.\n"
+                "2️⃣ Si el cliente dio menos (abono parcial), **modifica el valor** en la columna **Monto a Abonar ($)** escribiendo lo que realmente entregó.\n"
+                "3️⃣ Haz clic en el botón inferior para registrar el cobro."
             )
 
             df_mostrar = df.copy()
 
-            df_mostrar["capital_prestado"] = df_mostrar["capital_prestado"].apply(
-                lambda x: f"${x:,.0f}".replace(",", ".")
-            )
-            df_mostrar["total_a_pagar"] = df_mostrar["total_a_pagar"].apply(
-                lambda x: f"${x:,.0f}".replace(",", ".")
-            )
-            df_mostrar["cuota_diaria_fmt"] = df_mostrar["cuota_diaria"].apply(
-                lambda x: f"${x:,.0f}".replace(",", ".")
-            )
-            df_mostrar["saldo_pendiente"] = df_mostrar["saldo_pendiente"].apply(
-                lambda x: f"${x:,.0f}".replace(",", ".")
-            )
-
+            # Preparamos las columnas visuales
             df_mostrar.insert(0, "Abonar_Cuota", False)
+            df_mostrar.insert(1, "Monto_Ingresado", df_mostrar["cuota_diaria"])
 
             columnas_visibles = [
                 "Abonar_Cuota",
+                "Monto_Ingresado",
                 "fecha_prestamo",
                 "nombre_cliente",
                 "capital_prestado",
                 "total_a_pagar",
-                "cuota_diaria_fmt",
+                "cuota_diaria",
                 "saldo_pendiente",
                 "estado",
             ]
@@ -404,6 +391,9 @@ else:
                     "Abonar_Cuota": st.column_config.CheckboxColumn(
                         "Pago Hoy", default=False
                     ),
+                    "Monto_Ingresado": st.column_config.NumberColumn(
+                        "Monto a Abonar ($)", min_value=0, step=1000, format="$%d"
+                    ),
                     "id": None,
                     "fecha_prestamo": st.column_config.TextColumn(
                         "Fecha", disabled=True
@@ -411,17 +401,17 @@ else:
                     "nombre_cliente": st.column_config.TextColumn(
                         "Cliente", disabled=True
                     ),
-                    "capital_prestado": st.column_config.TextColumn(
-                        "Capital ($)", disabled=True
+                    "capital_prestado": st.column_config.NumberColumn(
+                        "Capital ($)", format="$%d", disabled=True
                     ),
-                    "total_a_pagar": st.column_config.TextColumn(
-                        "Total Crédito ($)", disabled=True
+                    "total_a_pagar": st.column_config.NumberColumn(
+                        "Total Crédito ($)", format="$%d", disabled=True
                     ),
-                    "cuota_diaria_fmt": st.column_config.TextColumn(
-                        "Cuota Diaria ($)", disabled=True
+                    "cuota_diaria": st.column_config.NumberColumn(
+                        "Cuota Sugerida ($)", format="$%d", disabled=True
                     ),
-                    "saldo_pendiente": st.column_config.TextColumn(
-                        "Saldo Deuda ($)", disabled=True
+                    "saldo_pendiente": st.column_config.NumberColumn(
+                        "Saldo Deuda ($)", format="$%d", disabled=True
                     ),
                     "estado": st.column_config.TextColumn("Estado", disabled=True),
                 },
@@ -430,7 +420,7 @@ else:
                     "nombre_cliente",
                     "capital_prestado",
                     "total_a_pagar",
-                    "cuota_diaria_fmt",
+                    "cuota_diaria",
                     "saldo_pendiente",
                     "estado",
                 ],
@@ -442,7 +432,7 @@ else:
             filas_abonadas = df_editado[df_editado["Abonar_Cuota"] == True]
             if not filas_abonadas.empty:
               if st.button(
-                  f"💰 Registrar Abonos Diarios - {ruta}",
+                  f"💰 Registrar Abonos Seleccionados - {ruta}",
                   key=f"btn_abono_{ruta}",
                   type="primary",
               ):
@@ -452,15 +442,19 @@ else:
                 for index, row in filas_abonadas.iterrows():
                   credito_id = row["id"]
                   nombre_cli = row["nombre_cliente"]
+                  monto_real_pagado = int(row["Monto_Ingresado"])
                   
+                  if monto_real_pagado <= 0:
+                    continue
+
                   cursor.execute(
-                      "SELECT saldo_pendiente, cuota_diaria FROM creditos WHERE id = ?",
+                      "SELECT saldo_pendiente FROM creditos WHERE id = ?",
                       (credito_id,),
                   )
                   res = cursor.fetchone()
                   if res:
-                    saldo_actual, cuota = res
-                    nuevo_saldo = max(0, saldo_actual - cuota)
+                    saldo_actual = res[0]
+                    nuevo_saldo = max(0, saldo_actual - monto_real_pagado)
                     nuevo_estado = "Cancelado" if nuevo_saldo == 0 else "Activo"
 
                     cursor.execute(
@@ -473,12 +467,12 @@ else:
                         INSERT INTO historial_pagos (credito_id, nombre_cliente, cobrador, monto_pagado, fecha_pago)
                         VALUES (?, ?, ?, ?, ?)
                         """,
-                        (credito_id, nombre_cli, ruta, cuota, fecha_hoy)
+                        (credito_id, nombre_cli, ruta, monto_real_pagado, fecha_hoy)
                     )
 
                 conn.commit()
                 st.success(
-                    f"✅ ¡Abonos registrados con fecha de hoy correctamente para la ruta {ruta}!"
+                    f"✅ ¡Abonos (completos o parciales) registrados correctamente para la ruta {ruta}!"
                 )
                 st.rerun()
           else:
