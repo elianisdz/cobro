@@ -81,7 +81,7 @@ st.markdown(
 
 
 def conectar_db():
-  conn = sqlite3.connect("sistema_creditos.db")
+  conn = sqlite3.connect("sistema_creditos.db", check_same_thread=False)
   cursor = conn.cursor()
 
   # Tabla de Rutas
@@ -139,6 +139,17 @@ st.markdown(
 )
 
 # -------------------------------------------------------------------
+# CARGAR RUTAS REGISTRADAS DE LA BASE DE DATOS
+# -------------------------------------------------------------------
+cursor_r = conn.cursor()
+cursor_r.execute(
+    "SELECT nombre_ruta, password_ruta FROM rutas ORDER BY nombre_ruta ASC"
+)
+rutas_info = cursor_r.fetchall()
+rutas_disponibles = [r[0] for r in rutas_info]
+dic_passwords_rutas = {r[0]: (r[1] if r[1] is not None else "") for r in rutas_info}
+
+# -------------------------------------------------------------------
 # BARRA LATERAL: GESTIÓN DE RUTAS, PRÉSTAMOS Y ELIMINACIÓN
 # -------------------------------------------------------------------
 st.sidebar.header("🗺️ Gestión de Rutas y Claves")
@@ -176,16 +187,7 @@ if btn_crear_ruta:
 
 st.sidebar.markdown("---")
 
-# Obtener rutas registradas
-cursor_r = conn.cursor()
-cursor_r.execute(
-    "SELECT nombre_ruta, password_ruta FROM rutas ORDER BY nombre_ruta ASC"
-)
-rutas_info = cursor_r.fetchall()
-rutas_disponibles = [r[0] for r in rutas_info]
-dic_passwords_rutas = {r[0]: (r[1] if r[1] is not None else "") for r in rutas_info}
-
-# 1. Registrar Nuevo Crédito (Posición superior)
+# 1. Registrar Nuevo Crédito
 st.sidebar.header("📝 Registrar Nuevo Crédito")
 
 if not rutas_disponibles:
@@ -252,11 +254,10 @@ else:
 
 st.sidebar.markdown("---")
 
-# 2. Eliminar Ruta (Posición inferior, justo debajo de registrar crédito)
+# 2. Eliminar Ruta (Justo debajo de registrar crédito)
 st.sidebar.header("🗑️ Eliminar Ruta")
 if rutas_disponibles:
   with st.sidebar.form("form_eliminar_ruta", clear_on_submit=True):
-    # Selección directa por clic
     ruta_a_eliminar = st.selectbox(
         "Seleccionar Ruta a Retirar", rutas_disponibles, key="sel_ruta_eliminar"
     )
@@ -372,7 +373,6 @@ else:
 
             df_mostrar = df.copy()
 
-            # Preparamos las columnas visuales
             df_mostrar.insert(0, "Abonar_Cuota", False)
             df_mostrar.insert(1, "Monto_Ingresado", df_mostrar["cuota_diaria"])
 
@@ -475,7 +475,7 @@ else:
 
                 conn.commit()
                 st.success(
-                    f"✅ ¡Abonos (completos o parciales) registrados correctamente para la ruta {ruta}!"
+                    f"✅ ¡Abonos registrados correctamente para la ruta {ruta}!"
                 )
                 st.rerun()
           else:
