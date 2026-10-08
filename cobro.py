@@ -139,7 +139,7 @@ st.markdown(
 )
 
 # -------------------------------------------------------------------
-# BARRA LATERAL: GESTIÓN DE RUTAS Y NUEVOS PRÉSTAMOS
+# BARRA LATERAL: GESTIÓN DE RUTAS, PRÉSTAMOS Y ELIMINACIÓN
 # -------------------------------------------------------------------
 st.sidebar.header("🗺️ Gestión de Rutas y Claves")
 
@@ -185,42 +185,12 @@ rutas_info = cursor_r.fetchall()
 rutas_disponibles = [r[0] for r in rutas_info]
 dic_passwords_rutas = {r[0]: (r[1] if r[1] is not None else "") for r in rutas_info}
 
-# Eliminar Ruta por retiro de personal
-if rutas_disponibles:
-  with st.sidebar.form("form_eliminar_ruta", clear_on_submit=True):
-    st.markdown("**Eliminar Ruta (Retiro de Personal)**")
-    ruta_a_eliminar = st.selectbox(
-        "Seleccionar Ruta a Retirar", rutas_disponibles, key="sel_ruta_eliminar"
-    )
-    pass_retiro = st.text_input(
-        "Clave de la Ruta para Confirmar", type="password", key="input_pass_retiro"
-    )
-    btn_eliminar_ruta = st.form_submit_button("🗑️ Eliminar Ruta")
-
-  if btn_eliminar_ruta:
-    clave_real = dic_passwords_rutas.get(ruta_a_eliminar, "")
-    if pass_retiro == clave_real:
-      cursor = conn.cursor()
-      cursor.execute("DELETE FROM rutas WHERE nombre_ruta = ?", (ruta_a_eliminar,))
-      conn.commit()
-      st.sidebar.success(
-          f"✅ La ruta '{ruta_a_eliminar}' ha sido eliminada del sistema."
-      )
-      st.rerun()
-    else:
-      st.sidebar.error(
-          "❌ Contraseña incorrecta. No se puede eliminar la ruta sin su"
-          " clave."
-      )
-
-  st.sidebar.markdown("---")
-
+# 1. Registrar Nuevo Crédito (Posición superior)
 st.sidebar.header("📝 Registrar Nuevo Crédito")
 
 if not rutas_disponibles:
   st.sidebar.warning(
-      "⚠️ Primero debes registrar al menos una ruta con su contraseña en la"
-      " sección superior."
+      "⚠️ Primero debes registrar al menos una ruta con su contraseña."
   )
 else:
   fecha_credito = st.sidebar.date_input("Fecha del Préstamo", value=date.today())
@@ -256,7 +226,7 @@ else:
           int(total_calculado / dias_plazo) if dias_plazo > 0 else 0
       )
       fecha_str = fecha_credito.strftime("%Y-%m-%d")
-      
+
       cursor = conn.cursor()
       cursor.execute(
           """
@@ -279,6 +249,39 @@ else:
       conn.commit()
       st.sidebar.success(f"✅ Préstamo registrado para {nombre_cliente}")
       st.rerun()
+
+st.sidebar.markdown("---")
+
+# 2. Eliminar Ruta (Posición inferior, justo debajo de registrar crédito)
+st.sidebar.header("🗑️ Eliminar Ruta")
+if rutas_disponibles:
+  with st.sidebar.form("form_eliminar_ruta", clear_on_submit=True):
+    # Selección directa por clic
+    ruta_a_eliminar = st.selectbox(
+        "Seleccionar Ruta a Retirar", rutas_disponibles, key="sel_ruta_eliminar"
+    )
+    pass_retiro = st.text_input(
+        "Clave de la Ruta para Confirmar", type="password", key="input_pass_retiro"
+    )
+    btn_eliminar_ruta = st.form_submit_button("🗑️ Eliminar Ruta Definitivamente")
+
+  if btn_eliminar_ruta:
+    clave_real = dic_passwords_rutas.get(ruta_a_eliminar, "")
+    if pass_retiro == clave_real:
+      cursor = conn.cursor()
+      cursor.execute("DELETE FROM rutas WHERE nombre_ruta = ?", (ruta_a_eliminar,))
+      conn.commit()
+      st.sidebar.success(
+          f"✅ La ruta '{ruta_a_eliminar}' ha sido eliminada del sistema."
+      )
+      st.rerun()
+    else:
+      st.sidebar.error(
+          "❌ Contraseña incorrecta. No se puede eliminar la ruta sin su"
+          " clave."
+      )
+else:
+  st.sidebar.info("ℹ️ No hay rutas creadas para eliminar.")
 
 # -------------------------------------------------------------------
 # PANEL DE CARTERA Y GESTIÓN DE COBROS POR RUTA PROTEGIDA
