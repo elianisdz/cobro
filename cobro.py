@@ -353,8 +353,10 @@ else:
             total_cartera = df["total_a_pagar"].sum()
             total_pendiente = df["saldo_pendiente"].sum()
             total_prestado_global = df["capital_prestado"].sum()
+            total_cuota_diaria_global = df["cuota_diaria"].sum() # Suma de lo que se debe recoger hoy
 
-            m1, m2, m3 = st.columns(3)
+            # Cuatro métricas organizadas arriba
+            m1, m2, m3, m4 = st.columns(4)
             m1.metric(
                 "💵 Capital Prestado",
                 f"${total_prestado_global:,.0f}".replace(",", "."),
@@ -364,6 +366,9 @@ else:
             )
             m3.metric(
                 "⚠️ Saldo Pendiente", f"${total_pendiente:,.0f}".replace(",", ".")
+            )
+            m4.metric(
+                "🎯 Recaudo Diario Esperado", f"${total_cuota_diaria_global:,.0f}".replace(",", ".")
             )
 
             st.markdown("---")
@@ -445,7 +450,6 @@ else:
                   if res:
                     saldo_actual = res[0]
                     nuevo_saldo = max(0, saldo_actual - monto_real_pagado)
-                    # Cambia a Inactivo al terminar de pagar (No se borra solo)
                     nuevo_estado = "Inactivo" if nuevo_saldo == 0 else "Activo"
 
                     cursor.execute(
