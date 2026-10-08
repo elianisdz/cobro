@@ -335,8 +335,13 @@ else:
 
         st.markdown("---")
         
-        tab_activos, tab_historial = st.tabs(["📋 Créditos Activos", "📅 Historial de Pagos Realizados"])
+        tab_activos, tab_inactivos, tab_historial = st.tabs([
+            "📋 Créditos Activos", 
+            "📁 Créditos Finalizados / Inactivos", 
+            "📅 Historial de Pagos Realizados"
+        ])
 
+        # 1. Pestaña de Créditos Activos
         with tab_activos:
           query = (
               "SELECT * FROM creditos WHERE cobrador = ? AND estado = 'Activo' ORDER"
@@ -373,7 +378,6 @@ else:
             df_mostrar.insert(0, "Abonar_Cuota", False)
             df_mostrar.insert(1, "Monto_Ingresado", df_mostrar["cuota_diaria"])
 
-            # Columnas limpias (sin capital, total crédito ni saldo deuda)
             columnas_visibles = [
                 "Abonar_Cuota",
                 "Monto_Ingresado",
@@ -441,7 +445,8 @@ else:
                   if res:
                     saldo_actual = res[0]
                     nuevo_saldo = max(0, saldo_actual - monto_real_pagado)
-                    nuevo_estado = "Cancelado" if nuevo_saldo == 0 else "Activo"
+                    # Cambia a Inactivo al terminar de pagar (No se borra solo)
+                    nuevo_estado = "Inactivo" if nuevo_saldo == 0 else "Activo"
 
                     cursor.execute(
                         "UPDATE creditos SET saldo_pendiente = ?, estado = ? WHERE id = ?",
@@ -467,6 +472,39 @@ else:
                 f" '{ruta}'."
             )
 
+        # 2. Pestaña de Créditos Inactivos (Con opción de eliminación manual)
+        with tab_inactivos:
+          st.markdown(f"### 📁 Créditos Finalizados / Inactivos - {ruta}")
+          st.caption("Aquí se muestran los préstamos que ya terminaron de pagar. Puedes eliminarlos manualmente cuando lo desees.")
+
+          query_inactivos = (
+              "SELECT id, fecha_prestamo, nombre_cliente, capital_prestado, total_a_pagar, estado "
+              "FROM creditos WHERE cobrador = ? AND estado = 'Inactivo' ORDER BY id DESC"
+          )
+          df_inactivos = pd.read_sql_query(query_inactivos, conn, params=(ruta,))
+
+          if not df_inactivos.empty:
+            for index, row in df_inactivos.iterrows():
+              c_id = row["id"]
+              c_fecha = row["fecha_prestamo"]
+              c_cliente = row["nombre_cliente"]
+              c_total = row["total_a_pagar"]
+
+              col_info, col_btn = st.columns([4, 1])
+              with col_info:
+                st.write(f"👤 **{c_cliente.upper()}** | Fecha: {c_fecha} | Total Pagado: ${c_total:,.0f}".replace(",", "."))
+              with col_btn:
+                if st.button(f"🗑️ Eliminar", key=f"btn_del_credito_{c_id}"):
+                  cursor = conn.cursor()
+                  cursor.execute("DELETE FROM creditos WHERE id = ?", (c_id,))
+                  cursor.execute("DELETE FROM historial_pagos WHERE credito_id = ?", (c_id,))
+                  conn.commit()
+                  st.success(f"🗑️ Préstamo de {c_cliente} eliminado correctamente.")
+                  st.rerun()
+          else:
+            st.info("ℹ️ No hay créditos inactivos o finalizados en esta ruta.")
+
+        # 3. Pestaña de Historial de Pagos
         with tab_historial:
           st.markdown(f"### 📅 Registro Histórico de Abonos - {ruta}")
           st.caption("Los pagos de cada cliente se muestran en bloques separados y organizados.")
